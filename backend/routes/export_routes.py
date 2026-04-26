@@ -2,14 +2,25 @@ import base64
 import re
 from io import BytesIO
 from flask import Blueprint, request, send_file
-from weasyprint import HTML, CSS
 from utils.response_formatter import error_response
+
+# Try to import WeasyPrint - make it optional for now
+try:
+    from weasyprint import HTML, CSS
+    WEASYPRINT_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] WeasyPrint not available: {e}")
+    WEASYPRINT_AVAILABLE = False
+    HTML = None
+    CSS = None
 
 export_bp = Blueprint("export_bp", __name__)
 
 # ---------- CSS ----------
 
-BASE_CSS = CSS(string="""
+BASE_CSS = None
+if WEASYPRINT_AVAILABLE:
+    BASE_CSS = CSS(string="""
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
 
     @page {

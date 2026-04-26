@@ -12,3 +12,4 @@ ollama
 weasyprint
 anthropic
 mistralai
+moviepy

@@ -14,6 +14,7 @@ from routes.mcq_routes import mcq_bp
 from routes.mindmap_explain_routes import mindmap_explain_bp
 from routes.insights_routes import insights_bp
 from routes.chatbot_routes import chatbot_bp
+from routes.video_routes import video_bp
 
 import os
 from dotenv import load_dotenv
@@ -44,6 +45,7 @@ app.register_blueprint(mcq_bp)
 app.register_blueprint(mindmap_explain_bp)
 app.register_blueprint(insights_bp)
 app.register_blueprint(chatbot_bp)
+app.register_blueprint(video_bp)
 os.makedirs("uploads", exist_ok=True)
 
 if __name__ == "__main__":

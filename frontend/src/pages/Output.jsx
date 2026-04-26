@@ -2,16 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, FileText, Layers, Loader } from "lucide-react";
 import * as api from "../services/api";
 
-import TopicsSidebar  from "../components/output/TopicsSidebar";
-import ContentPanel   from "../components/output/ContentPanel";
-import Studio         from "../components/output/Studio";
-import MindmapModal   from "../components/output/MindmapModal";
+import TopicsSidebar from "../components/output/TopicsSidebar";
+import ContentPanel from "../components/output/ContentPanel";
+import Studio from "../components/output/Studio";
+import MindmapModal from "../components/output/MindmapModal";
 import FlashcardModal from "../components/output/FlashcardModal";
-import QuizModal      from "../components/output/QuizModal";
-import ImagesModal    from "../components/output/ImagesModal";
-import InsightsModal  from "../components/output/InsightsModal";
-import useExportPDF   from "../hooks/useExportPDF";
-import ChatbotModal   from "../components/output/ChatbotModal";
+import QuizModal from "../components/output/QuizModal";
+import ImagesModal from "../components/output/ImagesModal";
+import InsightsModal from "../components/output/InsightsModal";
+import useExportPDF from "../hooks/useExportPDF";
+import ChatbotModal from "../components/output/ChatbotModal";
+import VideoModal from "../components/output/VideoModal";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -19,24 +20,28 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
   const topics = Array.isArray(extractedData) ? extractedData : [];
 
   // Core state
-  const [selectedTopic, setSelectedTopic]       = useState(null);
+  const [selectedTopic, setSelectedTopic] = useState(null);
   const [simplifiedTopics, setSimplifiedTopics] = useState([]);
   const [simplificationProgress, setSimplificationProgress] = useState(0);
-  const [isSimplifying, setIsSimplifying]       = useState(true);
+  const [isSimplifying, setIsSimplifying] = useState(true);
   const [simplificationErrors, setSimplificationErrors] = useState({});
-  const [isProcessing, setIsProcessing]         = useState(false);
-  const [isTranslating, setIsTranslating]       = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [translationProgress, setTranslationProgress] = useState(0);
 
   // Mindmap cache: { [topicName]: mindmapData }
   // Shared across Studio mindmap view AND PDF export
-  const [mindmapCache, setMindmapCache]         = useState({});
+  const [mindmapCache, setMindmapCache] = useState({});
+
+  // Images cache: { [topicName]: imagesData }
+  // Persists images across modal close/open and topic switches
+  const [imagesCache, setImagesCache] = useState({});
 
   // Mindmap modal state
-  const [showMindmap, setShowMindmap]           = useState(false);
+  const [showMindmap, setShowMindmap] = useState(false);
   const [activeMindmapData, setActiveMindmapData] = useState(null);
   const [isGeneratingMindmap, setIsGeneratingMindmap] = useState(false);
-  const [mindmapError, setMindmapError]         = useState(null);
+  const [mindmapError, setMindmapError] = useState(null);
   const [isDownloadingMindmap, setIsDownloadingMindmap] = useState(false);
 
   // Mindmap Explain states
@@ -49,22 +54,27 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
   const explainAudioRef = useRef(null);
 
   // Flashcard state
-  const [showFlashcards, setShowFlashcards]     = useState(false);
-  const [flashcardsData, setFlashcardsData]     = useState(null);
+  const [showFlashcards, setShowFlashcards] = useState(false);
+  const [flashcardsData, setFlashcardsData] = useState(null);
   const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
-  const [flashcardsError, setFlashcardsError]   = useState(null);
+  const [flashcardsError, setFlashcardsError] = useState(null);
 
   // Quiz state
-  const [showQuiz, setShowQuiz]                 = useState(false);
-  const [quizData, setQuizData]                 = useState(null);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizData, setQuizData] = useState(null);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
-  const [quizError, setQuizError]               = useState(null);
+  const [quizError, setQuizError] = useState(null);
 
-  // Images state
-  const [showImages, setShowImages]             = useState(false);
-  const [imagesData, setImagesData]             = useState(null);
+  // Images state - only tracks current modal display
+  const [showImages, setShowImages] = useState(false);
+  const [imagesData, setImagesData] = useState(null);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
-  const [imagesError, setImagesError]           = useState(null);
+  const [imagesError, setImagesError] = useState(null);
+  // Video state
+  const [showVideo, setShowVideo] = useState(false);
+  const [videoData, setVideoData] = useState(null);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoError, setVideoError] = useState(null);
 
   // Insights states
   const [showInsights, setShowInsights] = useState(false);
@@ -91,18 +101,18 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
     const audio = explainAudioRef.current;
     if (!audio) return;
 
-    const updateTime  = () => setExplainCurrentTime(audio.currentTime);
-    const updateDur   = () => setExplainDuration(audio.duration);
+    const updateTime = () => setExplainCurrentTime(audio.currentTime);
+    const updateDur = () => setExplainDuration(audio.duration);
     const handleEnded = () => setIsExplainPlaying(false);
 
-    audio.addEventListener("timeupdate",     updateTime);
+    audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDur);
-    audio.addEventListener("ended",          handleEnded);
+    audio.addEventListener("ended", handleEnded);
 
     return () => {
-      audio.removeEventListener("timeupdate",     updateTime);
+      audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDur);
-      audio.removeEventListener("ended",          handleEnded);
+      audio.removeEventListener("ended", handleEnded);
     };
   }, [explainAudioLoaded]);
 
@@ -111,6 +121,15 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
     if (topics.length > 0 && !isProcessing) simplifyAllTopics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Load cached images when topic changes ──────────────────────
+  useEffect(() => {
+    if (selectedTopic && imagesCache[selectedTopic.topic]) {
+      setImagesData(imagesCache[selectedTopic.topic]);
+    } else {
+      setImagesData(null);
+    }
+  }, [selectedTopic, imagesCache]);
 
   const simplifyAllTopics = async () => {
     if (isProcessing) return;
@@ -247,7 +266,7 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
     try {
       const response = await api.explainMindmap(activeMindmapData);
       const audioBlob = new Blob([response.data], { type: "audio/mpeg" });
-      const audioUrl  = URL.createObjectURL(audioBlob);
+      const audioUrl = URL.createObjectURL(audioBlob);
 
       if (explainAudioRef.current) {
         explainAudioRef.current.src = audioUrl;
@@ -357,18 +376,58 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
     setIsGeneratingImages(true);
     setImagesError(null);
     setShowImages(true);
+
+    const cacheKey = selectedTopic.topic;
+
+    // Hit cache first — no API call needed
+    if (imagesCache[cacheKey]) {
+      setImagesData(imagesCache[cacheKey]);
+      setIsGeneratingImages(false);
+      return;
+    }
+
     try {
       const text = selectedLanguage === "hindi" && selectedTopic.content_hindi
         ? selectedTopic.content_hindi : selectedTopic.content;
       const res = await api.generateImages({ text });
-      setImagesData(res.data.data.images);
+      const images = res.data.data.images;
+      // Store in cache
+      setImagesCache(prev => ({ ...prev, [cacheKey]: images }));
+      setImagesData(images);
     } catch (err) {
       setImagesError(err.response?.data?.message || err.message || "Failed to generate images");
     } finally {
       setIsGeneratingImages(false);
     }
   };
+  //Video
+  const generateVideo = async () => {
+    if (!selectedTopic) return;
 
+    // Get images from cache
+    const cacheKey = selectedTopic.topic;
+    const cachedImages = imagesCache[cacheKey];
+
+    if (!cachedImages?.length) {
+      setVideoError("Please generate images first before creating a video");
+      setShowVideo(true);
+      return;
+    }
+
+    setIsGeneratingVideo(true);
+    setVideoError(null);
+    setShowVideo(true);
+    try {
+      const text = selectedLanguage === "hindi" && selectedTopic.content_hindi
+        ? selectedTopic.content_hindi : selectedTopic.content;
+      const res = await api.generateVideo({ text, images: cachedImages, language: selectedLanguage });
+      setVideoData(res.data.data);
+    } catch (err) {
+      setVideoError(err.response?.data?.message || err.message || "Failed to generate video");
+    } finally {
+      setIsGeneratingVideo(false);
+    }
+  };
   // ── Insights ──────────────────────────────────────────────────
   const generateInsights = async () => {
     if (!selectedTopic) return;
@@ -432,9 +491,8 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
             <button
               onClick={handleDownloadChapterPDF}
               disabled={isDownloadingChapter || isSimplifying || isTranslating}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                isDownloadingChapter ? "bg-green-700/50 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-              } text-white`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${isDownloadingChapter ? "bg-green-700/50 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                } text-white`}
             >
               {isDownloadingChapter ? <Loader size={16} className="animate-spin" /> : <FileText size={16} />}
               Chapter Notes
@@ -443,9 +501,8 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
             <button
               onClick={handleDownloadChapterCombinedPDF}
               disabled={isDownloadingChapterCombined || isSimplifying || isTranslating}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                isDownloadingChapterCombined ? "bg-purple-700/50 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700"
-              } text-white`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${isDownloadingChapterCombined ? "bg-purple-700/50 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700"
+                } text-white`}
             >
               {isDownloadingChapterCombined ? <Loader size={16} className="animate-spin" /> : <Layers size={16} />}
               Chapter + Mindmaps
@@ -483,8 +540,10 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
             onFlashcards={generateFlashcards}
             onQuiz={generateQuiz}
             onImages={generateImages}
+            onVideo={generateVideo}
             onInsights={generateInsights}
             onDoubt={openChatbot}
+            imagesData={imagesData}
           />
         </div>
       </main>
@@ -553,11 +612,21 @@ const Output = ({ extractedData, originalData, onBack, selectedLanguage }) => {
           imagesData={imagesData}
           isLoading={isGeneratingImages}
           error={imagesError}
-          onClose={() => { setShowImages(false); setImagesData(null); setImagesError(null); }}
+          onClose={() => { setShowImages(false); }}
           onRetry={generateImages}
         />
       )}
-
+      {showVideo && (
+        <VideoModal
+          selectedTopic={selectedTopic}
+          videoData={videoData}
+          isGenerating={isGeneratingVideo}
+          error={videoError}
+          onClose={() => { setShowVideo(false); setVideoData(null); setVideoError(null); }}
+          onGenerate={generateVideo}
+          onRetry={generateVideo}
+        />
+      )}
       {showInsights && (
         <InsightsModal
           data={insightsData}

@@ -105,4 +105,7 @@ export const explainFlashcard = (question, answer, language) =>
 export const chatWithBot = (payload) =>
   axios.post(`${API_BASE_URL}/chat`, payload);
 
+export const generateVideo = ({ text, images, language }) =>
+  apiClient.post("/generate-video", { text, images, language });
+ 
 export default apiClient;
