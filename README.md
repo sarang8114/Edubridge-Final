@@ -12,7 +12,7 @@ EduBridge is an intelligent educational tool that helps students learn better by
 
 ## Architecture Diagram
 
-![EduBridge Architecture](./assets/architecture.png)
+![EduBridge Architecture](./frontend/src/assets/architecture.png)
 
 ---
 ## Key Features
